@@ -148,8 +148,48 @@ export const getAllByObj = (entity: keyof DbSchema, query: object) => {
 // MY EVENTS FUNCTIONS
 export const getAllEvents = (): Event[] => db.get(EVENT_TABLE).value();
 
+interface EventFilter {
+  sorting: string;
+  type: string;
+  browser: string;
+  search: string;
+  offset: number;
+}
+
 export const getFilteredEvents = (filterObj: EventFilter): Event[] => {
-  const allEvents = getAllEvents();
+  let allEvents = db.get(EVENT_TABLE).value();
+
+  if (filterObj.sorting) {
+    allEvents.sort((eventA: Event, eventB: Event): number => {
+      if (filterObj.sorting === "-date") return eventB.date - eventA.date;
+      return eventA.date - eventB.date;
+    });
+  }
+  if (filterObj.type) {
+    allEvents = allEvents.filter((event: Event): boolean => {
+      return event.name === filterObj.type;
+    });
+  }
+  if (filterObj.browser) {
+    allEvents = allEvents.filter((event: Event): boolean => {
+      return event.browser === filterObj.browser;
+    });
+  }
+  if (filterObj.search) {
+    allEvents = allEvents.filter((event: Event): boolean => {
+      const values = Object.values(event).join(" ").toLowerCase();
+      if (values.indexOf(filterObj.search.toLowerCase()) !== -1) {
+        return true;
+      }
+      return false;
+    });
+  }
+
+  return allEvents;
+};
+
+export const logEvent = (event: Event) => {
+  db.get(EVENT_TABLE).push(event).write();
 };
 
 // Search

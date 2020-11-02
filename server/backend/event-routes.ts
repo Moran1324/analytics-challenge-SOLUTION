@@ -2,9 +2,10 @@
 
 import express from "express";
 import { Request, Response } from "express";
+import { v4 as uuidv4 } from "uuid";
 
 // some useful database functions in here:
-import { getAllEvents } from "./database";
+import { getAllEvents, getFilteredEvents, logEvent } from "./database";
 import { Event, weeklyRetentionObject } from "../../client/src/models/event";
 import { ensureAuthenticated, validateMiddleware } from "./helpers";
 
@@ -16,6 +17,19 @@ import {
 } from "./validators";
 const router = express.Router();
 
+interface EventFilter {
+  sorting: string;
+  type: string;
+  browser: string;
+  search: string;
+  offset: number;
+}
+
+interface JSONres {
+  events: Event[];
+  more: boolean;
+}
+
 // Routes
 
 router.get("/all", (req: Request, res: Response) => {
@@ -26,6 +40,20 @@ router.get("/all", (req: Request, res: Response) => {
 router.get("/all-filtered", (req: Request, res: Response) => {
   // res.send("/all-filtered");
   const filters: EventFilter = req.query;
+  console.log(filters);
+
+  const filteredEvents = getFilteredEvents(filters);
+  const response: JSONres = {
+    events: filteredEvents,
+    more: false,
+  };
+  if (req.query.offset > 0) {
+    if (filteredEvents.length > req.query.offset) {
+      response.more = true;
+    }
+    response.events = filteredEvents.slice(0, +req.query.offset);
+  }
+  res.json(response);
 });
 
 router.get("/by-days/:offset", (req: Request, res: Response) => {
@@ -48,12 +76,25 @@ router.get("/retention", (req: Request, res: Response) => {
   const { dayZero } = req.query;
   res.send("/retention");
 });
+
 router.get("/:eventId", (req: Request, res: Response) => {
   res.send("/:eventId");
 });
 
 router.post("/", (req: Request, res: Response) => {
-  res.send("/");
+  const newEvent: Event = {
+    _id: uuidv4(),
+    session_id: uuidv4(),
+    name: req.body.name,
+    url: req.body.url,
+    distinct_user_id: req.body.distinct_user_id,
+    date: req.body.date,
+    os: req.body.os,
+    browser: req.body.browser,
+    geolocation: req.body.geolocation,
+  };
+  logEvent(newEvent);
+  res.sendStatus(200);
 });
 
 router.get("/chart/os/:time", (req: Request, res: Response) => {
