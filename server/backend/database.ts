@@ -49,7 +49,7 @@ import {
   NotificationResponseItem,
   TransactionQueryPayload,
   DefaultPrivacyLevel,
-  Event
+  Event,
 } from "../../client/src/models";
 import Fuse from "fuse.js";
 import {
@@ -69,7 +69,7 @@ import {
   isCommentNotification,
 } from "../../client/src/utils/transactionUtils";
 import { DbSchema } from "../../client/src/models/db-schema";
-
+import { Filter } from "http-proxy-middleware";
 
 export type TDatabase = {
   users: User[];
@@ -143,6 +143,13 @@ export const getAllByObj = (entity: keyof DbSchema, query: object) => {
     .value();
 
   return result;
+};
+
+// MY EVENTS FUNCTIONS
+export const getAllEvents = (): Event[] => db.get(EVENT_TABLE).value();
+
+export const getFilteredEvents = (filterObj: EventFilter): Event[] => {
+  const allEvents = getAllEvents();
 };
 
 // Search
@@ -862,6 +869,5 @@ export const getTransactionsBy = (key: string, value: string) =>
 
 /* istanbul ignore next */
 export const getTransactionsByUserId = (userId: string) => getTransactionsBy("receiverId", userId);
-
 
 export default db;
