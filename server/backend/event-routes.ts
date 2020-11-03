@@ -5,7 +5,13 @@ import { Request, Response } from "express";
 import { v4 as uuidv4 } from "uuid";
 
 // some useful database functions in here:
-import { getAllEvents, getFilteredEvents, logEvent } from "./database";
+import {
+  getAllEvents,
+  getEventsWeek,
+  getFilteredEvents,
+  logEvent,
+  UniqueSession,
+} from "./database";
 import { Event, weeklyRetentionObject } from "../../client/src/models/event";
 import { ensureAuthenticated, validateMiddleware } from "./helpers";
 
@@ -56,8 +62,10 @@ router.get("/all-filtered", (req: Request, res: Response) => {
   res.json(response);
 });
 
-router.get("/by-days/:offset", (req: Request, res: Response) => {
-  res.send("/by-days/:offset");
+router.get("/by-days/:offset?", (req: Request, res: Response) => {
+  const offset: number = parseInt(req.params.offset) || 0;
+  const results: UniqueSession[] = getEventsWeek(offset);
+  res.json(results);
 });
 
 router.get("/by-hours/:offset", (req: Request, res: Response) => {

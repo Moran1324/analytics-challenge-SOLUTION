@@ -70,6 +70,7 @@ import {
 } from "../../client/src/utils/transactionUtils";
 import { DbSchema } from "../../client/src/models/db-schema";
 import { Filter } from "http-proxy-middleware";
+import { OneWeek, OneDay, OneHour } from "./timeFrames";
 
 export type TDatabase = {
   users: User[];
@@ -156,6 +157,11 @@ interface EventFilter {
   offset: number;
 }
 
+export interface UniqueSession {
+  date: string;
+  count: number;
+}
+
 export const getFilteredEvents = (filterObj: EventFilter): Event[] => {
   let allEvents = db.get(EVENT_TABLE).value();
 
@@ -190,6 +196,64 @@ export const getFilteredEvents = (filterObj: EventFilter): Event[] => {
 
 export const logEvent = (event: Event) => {
   db.get(EVENT_TABLE).push(event).write();
+};
+
+const formatDate = (date: Date): string => {
+  // const dateStr = new Date(date)
+  //   .toISOString()
+  //   .split("T")[0]
+  //   .split("-")
+  //   .reverse()
+  //   .join("-")
+  //   .replaceAll("-", "/");
+  // return dateStr;
+  var d = new Date(date),
+    month = "" + (d.getMonth() + 1),
+    day = "" + d.getDate(),
+    year = d.getFullYear();
+
+  if (month.length < 2) month = "0" + month;
+  if (day.length < 2) day = "0" + day;
+
+  return [day, month, year].join("/");
+};
+
+export const getEventsWeek = (offset: number = 0): UniqueSession[] => {
+  const allEvents: Event[] = db.get(EVENT_TABLE).value();
+  console.log("date", formatDate(new Date(allEvents[0].date)));
+
+  const lastDay: number = new Date().setHours(0, 0, 0, 0) + OneDay - offset * OneDay;
+  const firstDay: number = lastDay - OneWeek;
+  let filteredEvents: Event[] = allEvents.filter((event): boolean => {
+    return firstDay <= event.date && event.date <= lastDay;
+  });
+  filteredEvents = filteredEvents.sort((eventA, eventB) => eventA.date - eventB.date);
+  let datesArr: string[] = new Array(7);
+  let countsArr: number[] = [0, 0, 0, 0, 0, 0, 0];
+  for (let i = 0; i < 7; i++) {
+    datesArr[i] = formatDate(new Date(firstDay + OneDay * i));
+  }
+  for (let j = 0; j < filteredEvents.length; j++) {
+    const index = datesArr.indexOf(formatDate(new Date(filteredEvents[j].date)));
+    countsArr[index]++;
+  }
+  // let j = -1;
+  // for (let i = 0; i < filteredEvents.length; i++) {
+  //   if (!datesArr.includes(formatDate(new Date(filteredEvents[i].date)))) {
+  //     datesArr.push(formatDate(new Date(filteredEvents[i].date)));
+  //     j++;
+  //   }
+  //   countsArr[j]++;
+  // }
+  let results: UniqueSession[] = [];
+  for (let k = 0; k < datesArr.length; k++) {
+    results.push({
+      date: datesArr[k],
+      count: countsArr[k],
+    });
+  }
+
+  return results;
 };
 
 // Search
