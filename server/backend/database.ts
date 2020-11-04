@@ -306,7 +306,7 @@ const createRetentionObj = (
   startDay: number,
   index: number,
   weeksNum: number,
-  weeksDates: string[]
+  weeksDates: object[]
 ): weeklyRetentionObject => {
   const endDay = startDay + OneWeek;
   // console.log("startDay", formatDate(new Date(startDay)));
@@ -336,7 +336,7 @@ const createRetentionObj = (
     start: formatDate(new Date(startDay)),
     end: formatDate(new Date(endDay - OneHour / 60)),
   };
-  // weekaDatea
+  // weeksDates
   return results;
 };
 
