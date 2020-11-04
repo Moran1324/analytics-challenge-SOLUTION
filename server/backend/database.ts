@@ -174,6 +174,11 @@ export interface weeklyRetentionObject {
   end: string; //date string for the first day of the week
 }
 
+export interface WeekData {
+  start: number;
+  end: number;
+}
+
 export const getFilteredEvents = (filterObj: EventFilter): Event[] => {
   let allEvents = db.get(EVENT_TABLE).value();
 
@@ -301,45 +306,6 @@ export const getEventsDay = (offset: number = 0): UniqueSessionHour[] => {
   return results;
 };
 
-const createRetentionObj = (
-  eventsData: Event[],
-  startDay: number,
-  index: number,
-  weeksNum: number,
-  weeksDates: object[]
-): weeklyRetentionObject => {
-  const endDay = startDay + OneWeek;
-  // console.log("startDay", formatDate(new Date(startDay)));
-  // if (formatDate(new Date(startDay)) === "27/10/2020")
-  //   console.log("startDay", new Date(startDay).toISOString());
-  // console.log("endDay", formatDate(new Date(endDay - OneHour / 60)));
-  const filteredEvents: Event[] = eventsData.filter(
-    (event) => startDay < event.date && event.date < endDay && event.name === "signup"
-  );
-  let registrationWeek: number = index + 1;
-  const weeklyRetention: number[] = new Array(weeksNum - registrationWeek + 1);
-  const usersArr: string[] = [];
-  let newUsers: number = 0;
-  filteredEvents.forEach((event) => {
-    if (event.name === "signup") {
-      usersArr.push(event.distinct_user_id);
-      newUsers++;
-    }
-  });
-  const tempEvents: Event[] = eventsData.filter((event) => {
-    return event.name === ("signup" || "login") && usersArr.includes(event.distinct_user_id);
-  });
-  const results: weeklyRetentionObject = {
-    registrationWeek,
-    newUsers,
-    weeklyRetention,
-    start: formatDate(new Date(startDay)),
-    end: formatDate(new Date(endDay - OneHour / 60)),
-  };
-  // weeksDates
-  return results;
-};
-
 export const getWeeklyRetention = (dayZero: number): weeklyRetentionObject[] => {
   const allEvents: Event[] = db.get(EVENT_TABLE).value();
   const winterTimeDate: number = new Date(2020, 9, 25).getTime();
@@ -348,28 +314,87 @@ export const getWeeklyRetention = (dayZero: number): weeklyRetentionObject[] => 
   let filteredEvents = allEvents.filter((event) => {
     return event.date > startDay;
   });
-  const weeksDates: { start: string; end: string }[] = [];
-  let daysPassed = startDay + OneWeek;
-  do {
-    if (winterTimeDate < daysPassed && daysPassed < winterTimeDate + OneWeek) daysPassed += OneHour;
-    weeksDates.push({
-      start: formatDate(new Date(daysPassed - OneWeek)),
-      end: formatDate(new Date(daysPassed - OneHour / 60)),
-    });
-    daysPassed += OneWeek;
-  } while (daysPassed < today);
-  console.log("weekDates", weeksDates);
-  // console.log("dayZero", formatDate(new Date(dayZero)));
+  const weeksDates: WeekData[] = [];
   const weeksPassedSinceStartDay = Math.ceil((today - startDay) / OneWeek);
+  for (let x = 0; x < weeksPassedSinceStartDay; x++) {
+    if (
+      winterTimeDate < startDay + x * OneWeek &&
+      startDay + x * OneWeek < winterTimeDate + OneWeek
+    ) {
+      weeksDates.push({
+        start: startDay + x * OneWeek + OneHour,
+        end: startDay + (x + 1) * OneWeek + OneHour - OneHour / 60,
+      });
+    } else {
+      weeksDates.push({
+        start: startDay + x * OneWeek,
+        end: startDay + (x + 1) * OneWeek - OneHour / 60,
+      });
+    }
+  }
   const results: weeklyRetentionObject[] = [];
   for (let i = 0; i < weeksPassedSinceStartDay; i++) {
     let firstDay = startDay + OneWeek * i;
     if (winterTimeDate < firstDay) firstDay += OneHour;
-    // console.log("firstDay", formatDate(new Date(firstDay)));
-    results.push(
-      createRetentionObj(filteredEvents, firstDay, i, weeksPassedSinceStartDay, weeksDates)
-    );
+
+    results.push(createRetentionObj(filteredEvents, firstDay, i, weeksDates.slice(i)));
   }
+
+  return results;
+};
+
+const createRetentionObj = (
+  eventsData: Event[],
+  startDay: number,
+  index: number,
+  weeksDates: WeekData[]
+): weeklyRetentionObject => {
+  const endDay = startDay + OneWeek;
+  const filteredEvents: Event[] = eventsData.filter(
+    (event) => startDay < event.date && event.date < endDay && event.name === "signup"
+  );
+  let registrationWeek: number = index + 1;
+  const weeklyRetention: number[] = [];
+  const usersArr: string[] = [];
+  let newUsers: number = 0;
+  filteredEvents.forEach((event) => {
+    if (event.name === "signup") {
+      usersArr.push(event.distinct_user_id);
+      newUsers++;
+    }
+  });
+
+  const results: weeklyRetentionObject = {
+    registrationWeek,
+    newUsers,
+    weeklyRetention,
+    start: formatDate(new Date(startDay)),
+    end: formatDate(new Date(endDay - OneHour / 60)),
+  };
+  const tempEvents: Event[] = eventsData.filter((event) => {
+    return (
+      (event.name === "signup" || event.name === "login") &&
+      usersArr.includes(event.distinct_user_id)
+    );
+  });
+
+  const weeklyData: Event[][] = weeksDates.map((week: WeekData) => {
+    return tempEvents.filter((event) => {
+      return (
+        new Date(week.start).getTime() < event.date && event.date < new Date(week.end).getTime()
+      );
+    });
+  });
+
+  weeklyData.forEach((week) => {
+    const uniqueUsers: string[] = [];
+    week.forEach((event) => {
+      if (!uniqueUsers.includes(event.distinct_user_id)) {
+        uniqueUsers.push(event.distinct_user_id);
+      }
+    });
+    results.weeklyRetention.push(Math.round((uniqueUsers.length / newUsers) * 100));
+  });
 
   return results;
 };
