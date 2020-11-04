@@ -69,7 +69,6 @@ import {
   isCommentNotification,
 } from "../../client/src/utils/transactionUtils";
 import { DbSchema } from "../../client/src/models/db-schema";
-import { Filter } from "http-proxy-middleware";
 import { OneWeek, OneDay, OneHour } from "./timeFrames";
 
 export type TDatabase = {
@@ -157,9 +156,22 @@ interface EventFilter {
   offset: number;
 }
 
-export interface UniqueSession {
+export interface UniqueSessionDay {
   date: string;
   count: number;
+}
+
+export interface UniqueSessionHour {
+  hour: string;
+  count: number;
+}
+
+export interface weeklyRetentionObject {
+  registrationWeek: number; //launch is week 0 and so on
+  newUsers: number; // how many new user have joined this week
+  weeklyRetention: number[]; // for every week since, what percentage of the users came back. weeklyRetention[0] is always 100% because it's the week of registration
+  start: string; //date string for the first day of the week
+  end: string; //date string for the first day of the week
 }
 
 export const getFilteredEvents = (filterObj: EventFilter): Event[] => {
@@ -218,16 +230,29 @@ const formatDate = (date: Date): string => {
   return [day, month, year].join("/");
 };
 
-export const getEventsWeek = (offset: number = 0): UniqueSession[] => {
+const formatDateToHour = (date: Date): string => {
+  3;
+  const cuurentDate = new Date(date);
+  let dateHours = `${cuurentDate.getHours()}`;
+  if (cuurentDate.getHours() < 10) {
+    dateHours = "0" + dateHours;
+  }
+  let dateMinutes = `${cuurentDate.getMinutes()}`;
+  if (cuurentDate.getMinutes() < 10) {
+    dateMinutes = "0" + dateMinutes;
+  }
+  const hourStr = `${dateHours}:${dateMinutes}`;
+  return hourStr;
+};
+
+export const getEventsWeek = (offset: number = 0): UniqueSessionDay[] => {
   const allEvents: Event[] = db.get(EVENT_TABLE).value();
-  console.log("date", formatDate(new Date(allEvents[0].date)));
 
   const lastDay: number = new Date().setHours(0, 0, 0, 0) + OneDay - offset * OneDay;
   const firstDay: number = lastDay - OneWeek;
   let filteredEvents: Event[] = allEvents.filter((event): boolean => {
     return firstDay <= event.date && event.date <= lastDay;
   });
-  filteredEvents = filteredEvents.sort((eventA, eventB) => eventA.date - eventB.date);
   let datesArr: string[] = new Array(7);
   let countsArr: number[] = [0, 0, 0, 0, 0, 0, 0];
   for (let i = 0; i < 7; i++) {
@@ -237,20 +262,113 @@ export const getEventsWeek = (offset: number = 0): UniqueSession[] => {
     const index = datesArr.indexOf(formatDate(new Date(filteredEvents[j].date)));
     countsArr[index]++;
   }
-  // let j = -1;
-  // for (let i = 0; i < filteredEvents.length; i++) {
-  //   if (!datesArr.includes(formatDate(new Date(filteredEvents[i].date)))) {
-  //     datesArr.push(formatDate(new Date(filteredEvents[i].date)));
-  //     j++;
-  //   }
-  //   countsArr[j]++;
-  // }
-  let results: UniqueSession[] = [];
+  let results: UniqueSessionDay[] = [];
   for (let k = 0; k < datesArr.length; k++) {
     results.push({
       date: datesArr[k],
       count: countsArr[k],
     });
+  }
+
+  return results;
+};
+
+export const getEventsDay = (offset: number = 0): UniqueSessionHour[] => {
+  const allEvents: Event[] = db.get(EVENT_TABLE).value();
+
+  const pickedDay: number = new Date().setHours(0, 0, 0, 0) - offset * OneDay;
+  let filteredEvents: Event[] = allEvents.filter((event): boolean => {
+    return formatDate(new Date(event.date)) === formatDate(new Date(pickedDay));
+  });
+  let hoursArr: string[] = new Array(24);
+  let countsArr: number[] = new Array(24);
+  for (let i = 0; i < 24; i++) {
+    hoursArr[i] = formatDateToHour(new Date(pickedDay + OneHour * i));
+    countsArr[i] = 0;
+  }
+  for (let j = 0; j < filteredEvents.length; j++) {
+    const currentHour = new Date(filteredEvents[j].date).setMinutes(0);
+    const index = hoursArr.indexOf(formatDateToHour(new Date(currentHour)));
+    countsArr[index]++;
+  }
+  let results: UniqueSessionHour[] = [];
+  for (let k = 0; k < hoursArr.length; k++) {
+    results.push({
+      hour: hoursArr[k],
+      count: countsArr[k],
+    });
+  }
+  return results;
+};
+
+const createRetentionObj = (
+  eventsData: Event[],
+  startDay: number,
+  index: number,
+  weeksNum: number,
+  weeksDates: string[]
+): weeklyRetentionObject => {
+  const endDay = startDay + OneWeek;
+  // console.log("startDay", formatDate(new Date(startDay)));
+  // if (formatDate(new Date(startDay)) === "27/10/2020")
+  //   console.log("startDay", new Date(startDay).toISOString());
+  // console.log("endDay", formatDate(new Date(endDay - OneHour / 60)));
+  const filteredEvents: Event[] = eventsData.filter(
+    (event) => startDay < event.date && event.date < endDay && event.name === "signup"
+  );
+  let registrationWeek: number = index + 1;
+  const weeklyRetention: number[] = new Array(weeksNum - registrationWeek + 1);
+  const usersArr: string[] = [];
+  let newUsers: number = 0;
+  filteredEvents.forEach((event) => {
+    if (event.name === "signup") {
+      usersArr.push(event.distinct_user_id);
+      newUsers++;
+    }
+  });
+  const tempEvents: Event[] = eventsData.filter((event) => {
+    return event.name === ("signup" || "login") && usersArr.includes(event.distinct_user_id);
+  });
+  const results: weeklyRetentionObject = {
+    registrationWeek,
+    newUsers,
+    weeklyRetention,
+    start: formatDate(new Date(startDay)),
+    end: formatDate(new Date(endDay - OneHour / 60)),
+  };
+  // weekaDatea
+  return results;
+};
+
+export const getWeeklyRetention = (dayZero: number): weeklyRetentionObject[] => {
+  const allEvents: Event[] = db.get(EVENT_TABLE).value();
+  const winterTimeDate: number = new Date(2020, 9, 25).getTime();
+  const startDay = new Date(dayZero).setHours(0, 0, 0, 0);
+  const today = new Date().setHours(23, 59, 59);
+  let filteredEvents = allEvents.filter((event) => {
+    return event.date > startDay;
+  });
+  const weeksDates: { start: string; end: string }[] = [];
+  let daysPassed = startDay + OneWeek;
+  do {
+    if (winterTimeDate < daysPassed && daysPassed < winterTimeDate + OneWeek) daysPassed += OneHour;
+    weeksDates.push({
+      start: formatDate(new Date(daysPassed - OneWeek)),
+      end: formatDate(new Date(daysPassed - OneHour / 60)),
+    });
+    daysPassed += OneWeek;
+  } while (daysPassed < today);
+  console.log("weekDates", weeksDates);
+  // console.log("dayZero", formatDate(new Date(dayZero)));
+  const weeksPassedSinceStartDay = Math.ceil((today - startDay) / OneWeek);
+  const results: weeklyRetentionObject[] = [];
+  for (let i = 0; i < weeksPassedSinceStartDay; i++) {
+    let firstDay = startDay + OneWeek * i;
+    if (winterTimeDate < firstDay) firstDay += OneHour;
+    // console.log("firstDay", formatDate(new Date(firstDay)));
+    results.push(
+      createRetentionObj(filteredEvents, firstDay, i, weeksPassedSinceStartDay, weeksDates)
+    );
   }
 
   return results;

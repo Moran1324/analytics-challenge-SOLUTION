@@ -7,10 +7,13 @@ import { v4 as uuidv4 } from "uuid";
 // some useful database functions in here:
 import {
   getAllEvents,
+  getEventsDay,
   getEventsWeek,
   getFilteredEvents,
+  getWeeklyRetention,
   logEvent,
-  UniqueSession,
+  UniqueSessionDay,
+  UniqueSessionHour,
 } from "./database";
 import { Event, weeklyRetentionObject } from "../../client/src/models/event";
 import { ensureAuthenticated, validateMiddleware } from "./helpers";
@@ -46,7 +49,6 @@ router.get("/all", (req: Request, res: Response) => {
 router.get("/all-filtered", (req: Request, res: Response) => {
   // res.send("/all-filtered");
   const filters: EventFilter = req.query;
-  console.log(filters);
 
   const filteredEvents = getFilteredEvents(filters);
   const response: JSONres = {
@@ -64,12 +66,14 @@ router.get("/all-filtered", (req: Request, res: Response) => {
 
 router.get("/by-days/:offset?", (req: Request, res: Response) => {
   const offset: number = parseInt(req.params.offset) || 0;
-  const results: UniqueSession[] = getEventsWeek(offset);
+  const results: UniqueSessionDay[] = getEventsWeek(offset);
   res.json(results);
 });
 
-router.get("/by-hours/:offset", (req: Request, res: Response) => {
-  res.send("/by-hours/:offset");
+router.get("/by-hours/:offset?", (req: Request, res: Response) => {
+  const offset: number = parseInt(req.params.offset) || 0;
+  const results: UniqueSessionHour[] = getEventsDay(offset);
+  res.json(results);
 });
 
 router.get("/today", (req: Request, res: Response) => {
@@ -81,8 +85,9 @@ router.get("/week", (req: Request, res: Response) => {
 });
 
 router.get("/retention", (req: Request, res: Response) => {
-  const { dayZero } = req.query;
-  res.send("/retention");
+  const dayZero = +req.query.dayZero;
+  const results = getWeeklyRetention(dayZero);
+  res.json(results);
 });
 
 router.get("/:eventId", (req: Request, res: Response) => {
