@@ -85,7 +85,7 @@ router.get("/week", (req: Request, res: Response) => {
 });
 
 router.get("/retention", (req: Request, res: Response) => {
-  const dayZero = +req.query.dayZero;
+  const dayZero = +req?.query?.dayZero || new Date().getTime();
   const results = getWeeklyRetention(dayZero);
   res.json(results);
 });

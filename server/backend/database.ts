@@ -148,7 +148,7 @@ export const getAllByObj = (entity: keyof DbSchema, query: object) => {
 // MY EVENTS FUNCTIONS
 export const getAllEvents = (): Event[] => db.get(EVENT_TABLE).value();
 
-interface EventFilter {
+export interface EventFilter {
   sorting: string;
   type: string;
   browser: string;
@@ -215,7 +215,7 @@ export const logEvent = (event: Event) => {
   db.get(EVENT_TABLE).push(event).write();
 };
 
-const formatDate = (date: Date): string => {
+export const formatDate = (date: Date): string => {
   // const dateStr = new Date(date)
   //   .toISOString()
   //   .split("T")[0]
@@ -235,7 +235,7 @@ const formatDate = (date: Date): string => {
   return [day, month, year].join("/");
 };
 
-const formatDateToHour = (date: Date): string => {
+export const formatDateToHour = (date: Date): string => {
   3;
   const cuurentDate = new Date(date);
   let dateHours = `${cuurentDate.getHours()}`;
