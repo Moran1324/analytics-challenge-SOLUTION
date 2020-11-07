@@ -9,6 +9,7 @@ import SessionsByDaysTile from "components/SessionsByDaysTile";
 import SessionsByHoursTile from "components/SessionsByHoursTile";
 import TextField from "@material-ui/core/TextField";
 import { OneDay, OneHour, OneWeek } from "../helpers/timeFrames";
+import RetentionTile from "components/RetentionTile";
 
 export interface Props {
   authService: Interpreter<AuthMachineContext, any, AuthMachineEvents, any>;
@@ -126,6 +127,9 @@ const DashBoard: React.FC = () => {
           />
           <b>Sessions By Hour:</b>
           <SessionsByHoursTile data={hoursSessionsData} />
+        </div>
+        <div className="retention">
+          <RetentionTile />
         </div>
       </div>
     </>
