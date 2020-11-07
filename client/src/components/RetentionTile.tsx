@@ -43,7 +43,7 @@ const RetentionTile: React.FC = () => {
       <table style={{ border: "1px solid black", fontSize: "18px", borderCollapse: "collapse" }}>
         <tr style={{ border: "1px solid black", fontSize: "18px", borderCollapse: "collapse" }}>
           <td style={{ border: "1px solid black", fontSize: "18px", borderCollapse: "collapse" }}>
-            sdfdsdgfg
+            Week Number
           </td>
           {retentionEvents.map((obj: weeklyRetentionObject) => {
             return (
