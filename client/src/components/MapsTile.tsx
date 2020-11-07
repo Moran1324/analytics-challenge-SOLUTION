@@ -7,7 +7,7 @@ interface Props {
 }
 
 const containerStyle = {
-  width: "800px",
+  width: "90%",
   height: "400px",
 };
 
