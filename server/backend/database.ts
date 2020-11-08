@@ -153,7 +153,7 @@ export interface EventFilter {
   type: string;
   browser: string;
   search: string;
-  offset: number;
+  offset?: number;
 }
 
 export interface UniqueSessionDay {
