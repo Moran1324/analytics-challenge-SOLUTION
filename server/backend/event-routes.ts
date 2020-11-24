@@ -64,6 +64,24 @@ router.get("/all-filtered", (req: Request, res: Response) => {
   res.json(response);
 });
 
+router.get("/all-filtered-infinite", (req: Request, res: Response) => {
+  // res.send("/all-filtered");
+  const filters: EventFilter = req.query;
+
+  const filteredEvents = getFilteredEvents(filters);
+  const response: JSONres = {
+    events: filteredEvents,
+    more: false,
+  };
+  if (req.query.offset > 0) {
+    if (filteredEvents.length > req.query.offset) {
+      response.more = true;
+    }
+    response.events = filteredEvents.slice(0, +req.query.offset);
+  }
+  res.json(response);
+});
+
 router.get("/by-days/:offset?", (req: Request, res: Response) => {
   const offset: number = parseInt(req.params.offset) || 0;
   const results: UniqueSessionDay[] = getEventsWeek(offset);
